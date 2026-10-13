@@ -1,5 +1,7 @@
 # Oyuncak Makine — Lab Dersi
 
+### ▶ [Etkileşimli görseli aç: Bir Toplamanın Yolculuğu](https://atesnrllh.github.io/Programlama-I/Hafta-4/toplama-yolculugu.html)
+
 [Simülatör: toy.emrecan.dev](https://toy.emrecan.dev/)
 
 Bu ders, bilgisayarın içinde kodun nasıl işlendiğini göstermek amacıyla tasarlanmış bir giriş laboratuvarıdır. Gerçek bir işlemcinin çalışma mantığını basitleştirilmiş bir simülatör üzerinde öğreniyoruz.
