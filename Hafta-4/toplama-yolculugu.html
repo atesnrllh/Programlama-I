@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bir Toplamanın Yolculuğu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: makine şeması solda (sahne), kontrol + anlatım + program sağda; 1100px altında tek sütun */
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --sunken: #e3e8ee;
+  --fg: #17202b;
+  --muted: #566273;
+  --line: #b4bfcc;
+  --signal: #c9450b;
+  --signal-soft: #ffeee3;
+  --on-signal: #ffffff;
+  --data: #0a6a7b;
+  --data-soft: #ddf0f4;
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141a; --surface: #18202a; --sunken: #121921; --fg: #e4e9f0; --muted: #97a3b4;
+    --line: #3a4757; --signal: #ff8a4c; --signal-soft: #3a2217; --on-signal: #1a0c04;
+    --data: #62cadb; --data-soft: #123039; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141a; --surface: #18202a; --sunken: #121921; --fg: #e4e9f0; --muted: #97a3b4;
+  --line: #3a4757; --signal: #ff8a4c; --signal-soft: #3a2217; --on-signal: #1a0c04;
+  --data: #62cadb; --data-soft: #123039; color-scheme: dark;
+}
+
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1440px; margin: 0 auto; padding-inline: clamp(16px, 3vw, 40px); padding-block: 28px 48px; }
+.mono, code, kbd { font-family: var(--f-mono); }
+code { font-size: .92em; background: var(--sunken); border-radius: 4px; padding: 1px 5px; }
+kbd { font-size: .9em; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 6px; background: var(--surface); }
+
+header { display: grid; gap: 8px; margin-bottom: 22px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(28px, 4vw, 42px); line-height: 1.08; margin: 0; text-wrap: balance; }
+.lead { margin: 0; max-width: 68ch; color: var(--muted); }
+
+.layout { display: grid; gap: 18px; }
+@media (min-width: 1100px) { .layout { grid-template-columns: minmax(0, 1.75fr) minmax(340px, 1fr); align-items: start; } }
+
+.stage { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; min-width: 0; display: grid; gap: 12px; }
+.diagram { overflow-x: auto; }
+.diagram svg { display: block; width: 100%; min-width: 720px; height: auto; }
+
+/* SVG */
+svg text { fill: var(--fg); font-family: var(--f-body); }
+.frame rect { fill: var(--sunken); stroke: var(--line); stroke-width: 1.5; }
+.sub rect { fill: none; stroke: var(--line); stroke-width: 1.25; stroke-dasharray: 5 4; }
+.cap { font-family: var(--f-mono); font-size: 11.5px; letter-spacing: .08em; fill: var(--muted); }
+.colh { font-family: var(--f-mono); font-size: 11px; letter-spacing: .06em; fill: var(--muted); }
+.name { font-family: var(--f-display); font-weight: 600; font-size: 18px; }
+.lbl { font-size: 12.5px; fill: var(--muted); }
+.sublbl { font-size: 11.5px; fill: var(--muted); }
+.val { font-family: var(--f-mono); font-size: 15px; font-weight: 500; fill: var(--data); }
+.val.big { font-size: 19px; }
+.dec { font-family: var(--f-mono); font-size: 14px; fill: var(--muted); }
+.comp .box { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; transition: fill .25s, stroke .25s; }
+.comp.on > .box { fill: var(--signal-soft); stroke: var(--signal); stroke-width: 2.5; }
+.key { fill: var(--sunken); stroke: var(--line); stroke-width: 1.25; }
+.keytxt { font-family: var(--f-mono); font-size: 22px; font-weight: 600; }
+.screen { fill: var(--sunken); stroke: var(--line); stroke-width: 1.25; }
+.screentxt { font-family: var(--f-mono); font-size: 19px; font-weight: 600; }
+.edge path { fill: none; stroke: var(--line); stroke-width: 1.75; }
+.edge text { font-size: 11.5px; fill: var(--muted); }
+.edge.on path { stroke: var(--signal); stroke-width: 2.75; stroke-dasharray: 7 5; animation: flow .8s linear infinite; }
+.edge.on text { fill: var(--signal); font-weight: 600; }
+.mk-off { fill: var(--line); }
+.mk-on { fill: var(--signal); }
+.row rect { fill: var(--surface); stroke: var(--line); stroke-width: 1; transition: fill .25s, stroke .25s; }
+.row.read rect { fill: var(--data-soft); stroke: var(--data); stroke-width: 2.25; }
+.row.write rect { fill: var(--signal-soft); stroke: var(--signal); stroke-width: 2.25; }
+.row .addr { font-family: var(--f-mono); font-size: 13px; fill: var(--muted); }
+.row .addrd { font-family: var(--f-mono); font-size: 11.5px; fill: var(--muted); }
+.row .cell { font-family: var(--f-mono); font-size: 14px; font-weight: 500; }
+.row .mean { font-size: 13px; fill: var(--muted); }
+.row .empty { fill: var(--line); }
+.fa { fill: var(--sunken); stroke: var(--line); stroke-width: 1; }
+.comp.on .fa { stroke: var(--signal); }
+.fat { font-family: var(--f-mono); font-size: 10.5px; font-weight: 600; fill: var(--data); }
+
+.adderwrap { overflow-x: auto; }
+.adder { display: block; width: 100%; min-width: 340px; height: auto; }
+.adder text { fill: var(--fg); font-family: var(--f-mono); font-size: 12px; }
+.adder .w { font-size: 9.5px; fill: var(--muted); }
+.adder .rl { fill: var(--muted); font-weight: 600; }
+.adder .ib { fill: var(--muted); }
+.adder .ib.one { fill: var(--data); font-weight: 600; }
+.adder .ad-alu { fill: var(--surface); stroke: var(--line); stroke-width: 1.25; stroke-dasharray: 5 4; }
+.adder .ad-box { fill: var(--surface); stroke: var(--fg); stroke-width: 1.25; }
+.adder .ad-box.on { fill: var(--signal-soft); stroke: var(--signal); stroke-width: 2; }
+.adder .tt { font-size: 11px; font-weight: 600; }
+.adder .ln { fill: none; stroke: var(--muted); stroke-width: 1.25; }
+.adder .ln.on { stroke: var(--signal); stroke-width: 2.25; }
+.adder .ak { fill: var(--muted); }
+.adder .ak-on { fill: var(--signal); }
+.adder .cv { font-size: 10px; fill: var(--muted); }
+.adder .cv.on { fill: var(--signal); font-weight: 700; font-size: 11px; }
+.adder .sb { font-size: 15px; font-weight: 600; fill: var(--muted); }
+.adder .sb.one { fill: var(--data); }
+.adder .note-s { font-size: 10px; fill: var(--muted); }
+.dh2 { margin-top: 4px; }
+@keyframes flow { to { stroke-dashoffset: -12; } }
+.flash { animation: flash .7s ease-out; }
+@keyframes flash { from { opacity: .1; } to { opacity: 1; } }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.sw { width: 14px; height: 14px; border-radius: 3px; display: inline-block; border: 2px solid; }
+.sw-on { background: var(--signal-soft); border-color: var(--signal); }
+.sw-read { background: var(--data-soft); border-color: var(--data); }
+
+.rail { display: flex; flex-wrap: wrap; gap: 10px 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.grp { display: grid; gap: 5px; }
+.grp > span { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); }
+.grp > div { display: flex; gap: 4px; }
+.dot { width: 32px; height: 32px; padding: 0; border-radius: 7px; font-family: var(--f-mono); font-size: 12.5px; font-weight: 500; }
+.dot.done { background: var(--sunken); }
+.dot.cur { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
+
+.side { display: grid; gap: 14px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; display: grid; gap: 12px; min-width: 0; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.controls .count { margin-left: auto; font-family: var(--f-mono); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+button { font: inherit; font-weight: 600; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); padding: 9px 15px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--fg); }
+button.primary { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
+button.primary:hover:not(:disabled) { border-color: var(--signal); filter: brightness(1.06); }
+button:focus-visible { outline: 2px solid var(--data); outline-offset: 2px; }
+button:disabled { opacity: .45; cursor: default; }
+
+.stepmeta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.chip { background: var(--sunken); color: var(--fg); border-radius: 5px; padding: 2px 8px; }
+h2 { font-family: var(--f-display); font-weight: 700; font-size: 25px; line-height: 1.15; margin: 0; text-wrap: balance; }
+h3 { font-family: var(--f-display); font-weight: 700; font-size: 18px; margin: 0; }
+.body { display: grid; gap: 8px; }
+.body p { margin: 0; max-width: 62ch; }
+.note { margin: 0; font-size: 13.5px; color: var(--muted); border-left: 3px solid var(--line); padding-left: 10px; }
+.small { margin: 0; font-size: 13.5px; color: var(--muted); }
+
+.detail { background: var(--sunken); border-radius: 10px; padding: 12px 14px; display: grid; gap: 10px; min-width: 0; }
+.dh { font-family: var(--f-mono); font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.bits { display: grid; gap: 4px; }
+.brow { display: flex; gap: 4px; }
+.brow span { flex: 1; text-align: center; font-family: var(--f-mono); font-variant-numeric: tabular-nums; border-radius: 5px; }
+.brow span:nth-child(4) { margin-right: 8px; }
+.brow.w span { font-size: 11.5px; color: var(--muted); }
+.brow.b span { font-size: 20px; font-weight: 600; padding: 4px 0; background: var(--surface); color: var(--muted); }
+.brow.b span.one { background: var(--data-soft); color: var(--data); box-shadow: inset 0 0 0 1.5px var(--data); }
+.sum { margin: 0; font-size: 15px; }
+.sum .mono { color: var(--data); font-weight: 600; }
+.optscroll { overflow-x: auto; }
+.opt { width: 100%; border-collapse: collapse; font-size: 13.5px; background: var(--surface); border-radius: 8px; overflow: hidden; }
+.opt th { font-family: var(--f-mono); font-weight: 500; font-size: 11px; letter-spacing: .05em; color: var(--muted); text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+.opt td { padding: 6px 8px; vertical-align: top; border-bottom: 1px solid var(--sunken); }
+.opt tr:last-child td { border-bottom: none; }
+.opt td.c { color: var(--data); font-weight: 600; white-space: nowrap; }
+.opt td.yes { color: var(--fg); font-weight: 600; }
+.opt td.no { color: var(--muted); }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.half { background: var(--surface); border-radius: 8px; padding: 10px 12px; display: grid; gap: 2px; }
+.half .big { font-size: 24px; font-weight: 600; color: var(--data); letter-spacing: .04em; }
+.half .k { font-family: var(--f-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.addt { border-collapse: collapse; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.addt th { font-weight: 500; font-size: 12px; color: var(--muted); text-align: right; padding: 3px 10px 3px 0; white-space: nowrap; }
+.addt td { font-size: 19px; font-weight: 600; text-align: center; width: 1.25em; padding: 2px 1px; color: var(--muted); }
+.addt td.nib { padding-left: 10px; }
+.addt td.d { font-size: 14px; font-weight: 500; padding-left: 14px; text-align: left; width: auto; }
+.addt td.one { color: var(--data); }
+.addt tr.carry td { font-size: 14px; color: var(--signal); }
+.addt tr.res td { border-top: 2px solid var(--fg); color: var(--fg); }
+.addt tr.res td.one { color: var(--data); }
+.addt tr.res td.d { border-top: none; }
+.addscroll { overflow-x: auto; }
+.pair { display: flex; justify-content: space-between; gap: 10px; background: var(--surface); border-radius: 6px; padding: 7px 10px; font-size: 14px; }
+.pair .mono { color: var(--data); font-weight: 600; }
+.facts { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+
+.prog.on { border-color: var(--signal); box-shadow: 0 0 0 1px var(--signal); }
+.ph { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.ph span { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.progscroll { overflow-x: auto; }
+.progt { width: 100%; border-collapse: collapse; font-family: var(--f-mono); font-size: 14px; }
+.progt td { padding: 5px 8px; white-space: nowrap; }
+.progt td.a { color: var(--muted); width: 1.5em; text-align: right; }
+.progt td.l { color: var(--muted); }
+.progt td.mc { color: var(--data); text-align: right; }
+.progt td.mc.hid { color: var(--line); }
+.progt tr.cur td { background: var(--signal-soft); }
+.progt tr.cur td:first-child { box-shadow: inset 3px 0 0 var(--signal); }
+
+@media (prefers-reduced-motion: reduce) {
+  .edge.on path { animation: none; }
+  .flash { animation: none; }
+  .comp .box, .row rect { transition: none; }
+}
+
+body { margin: 0; }
+</style>
+</head>
+<body>
+<div class="wrap" lang="tr">
+  <header>
+    <div class="eyebrow">Programlama-I · Hafta 4 · Oyuncak Makine</div>
+    <h1>Bir toplamanın yolculuğu</h1>
+    <p class="lead">Klavyeden 4 ve 7 girilir, ekranda 11 görünür. Arada işlemcinin, belleğin ve ALU'nun ne yaptığını adım adım izleyin. İlerlemek için <kbd>Adımla</kbd> düğmesine ya da klavyede sağ ok tuşuna basın.</p>
+  </header>
+
+  <div class="layout">
+    <section class="stage" aria-label="Makine şeması">
+      <div class="diagram">
+        <svg id="machine" viewBox="0 0 1000 560" role="img" aria-label="Klavye, işlemci (kontrol birimi, ALU, akümülatör), bellek ve ekran arasındaki yollar. O adımda çalışan birimler ve kullanılan yollar turuncu ile vurgulanır.">
+          <defs>
+            <marker id="mk-off" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="mk-off"/></marker>
+            <marker id="mk-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="mk-on"/></marker>
+          </defs>
+
+          <g class="frame"><rect x="230" y="16" width="440" height="528" rx="14"/><text x="248" y="40" class="cap">İŞLEMCİ (CPU)</text></g>
+          <g class="sub"><rect x="248" y="52" width="404" height="172" rx="10"/><text x="264" y="74" class="cap">KONTROL BİRİMİ</text></g>
+
+          <g id="e-addr" class="edge"><path d="M652,66 H712"/><text x="691" y="59" text-anchor="middle">adres</text></g>
+          <g id="e-fetch" class="edge"><path d="M712,120 H636"/><text x="691" y="113" text-anchor="middle">komut</text></g>
+          <g id="e-ramB" class="edge"><path d="M712,261 H580"/><text x="691" y="254" text-anchor="middle">veri</text></g>
+          <g id="e-store" class="edge"><path d="M555,472 H712"/><text x="691" y="465" text-anchor="middle">yaz</text></g>
+          <g id="e-kbd" class="edge"><path d="M180,90 H205 V476 H335"/><text x="198" y="300" text-anchor="end">get</text></g>
+          <g id="e-outp" class="edge"><path d="M335,498 H180"/><text x="258" y="518" text-anchor="middle">print</text></g>
+          <g id="e-accA" class="edge"><path d="M335,452 H290 V261 H310"/><text x="284" y="360" text-anchor="end">kopya</text></g>
+          <g id="e-ctrl" class="edge"><path d="M445,210 V318"/><text x="452" y="238">işlem sinyali</text></g>
+          <g id="e-ain" class="edge"><path d="M370,278 V300"/></g>
+          <g id="e-bin" class="edge"><path d="M520,278 V300"/></g>
+          <g id="e-aluout" class="edge"><path d="M445,400 V440"/><text x="452" y="425">sonuç</text></g>
+
+          <g id="c-kbd" class="comp">
+            <rect class="box" x="20" y="40" width="160" height="100" rx="10"/>
+            <text x="36" y="64" class="cap">GİRİŞ</text>
+            <text x="36" y="90" class="name">Klavye</text>
+            <rect class="key" x="118" y="68" width="46" height="46" rx="7"/>
+            <text id="t-kbd" x="141" y="99" text-anchor="middle" class="keytxt"></text>
+          </g>
+
+          <g id="c-out" class="comp">
+            <rect class="box" x="20" y="420" width="160" height="100" rx="10"/>
+            <text x="36" y="444" class="cap">ÇIKIŞ</text>
+            <text x="36" y="468" class="name">Ekran</text>
+            <rect class="screen" x="36" y="476" width="128" height="32" rx="5"/>
+            <text id="t-out" x="154" y="499" text-anchor="end" class="screentxt"></text>
+          </g>
+
+          <g id="c-pc" class="comp">
+            <rect class="box" x="264" y="86" width="170" height="56" rx="7"/>
+            <text x="276" y="106" class="lbl">Program Sayacı (PC)</text>
+            <text id="t-pc" x="276" y="131" class="val">–</text>
+          </g>
+          <g id="c-ir" class="comp">
+            <rect class="box" x="446" y="86" width="190" height="56" rx="7"/>
+            <text x="458" y="106" class="lbl">Komut Yazmacı (IR)</text>
+            <text id="t-ir" x="458" y="131" class="val">–</text>
+          </g>
+          <g id="c-dec" class="comp">
+            <rect class="box" x="264" y="154" width="372" height="56" rx="7"/>
+            <text x="276" y="174" class="lbl">Çözücü</text>
+            <text id="t-dec" x="276" y="199" class="val">–</text>
+          </g>
+
+          <g id="c-a" class="comp">
+            <rect class="box" x="310" y="244" width="120" height="34" rx="6"/>
+            <text x="320" y="266" class="lbl">A</text>
+            <text id="t-a" x="380" y="266" text-anchor="middle" class="val">–</text>
+          </g>
+          <g id="c-b" class="comp">
+            <rect class="box" x="460" y="244" width="120" height="34" rx="6"/>
+            <text x="470" y="266" class="lbl">B</text>
+            <text id="t-b" x="530" y="266" text-anchor="middle" class="val">–</text>
+          </g>
+
+          <g id="c-alu" class="comp">
+            <polygon class="box" points="320,300 425,300 445,322 465,300 570,300 520,400 370,400"/>
+            <text x="445" y="345" text-anchor="middle" class="name">ALU</text>
+            <g id="fa"></g>
+            <text id="t-op" x="445" y="391" text-anchor="middle" class="val"></text>
+          </g>
+
+          <g id="c-acc" class="comp">
+            <rect class="box" x="335" y="440" width="220" height="64" rx="8"/>
+            <text x="349" y="460" class="lbl">Akümülatör (ACC)</text>
+            <text id="t-acc" x="349" y="491" class="val big">0000 0000</text>
+            <text id="t-accd" x="541" y="491" text-anchor="end" class="dec">= 0</text>
+          </g>
+
+          <g id="c-ram" class="comp">
+            <rect class="box" x="712" y="16" width="276" height="528" rx="14"/>
+            <text x="728" y="40" class="cap">BELLEK (RAM)</text>
+            <text x="732" y="64" class="colh">adres</text>
+            <text x="800" y="64" class="colh">içerik</text>
+            <text x="900" y="64" class="colh">anlamı</text>
+            <g id="rows"></g>
+          </g>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><i class="sw sw-on"></i>o adımda çalışan birim ve yazılan bellek hücresi</span>
+        <span><i class="sw sw-read"></i>okunan bellek hücresi</span>
+      </div>
+      <nav class="rail" id="rail" aria-label="Adımlar"></nav>
+    </section>
+
+    <aside class="side">
+      <div class="panel">
+        <div class="controls">
+          <button id="b-prev" type="button">← Geri</button>
+          <button id="b-next" type="button" class="primary">Adımla →</button>
+          <button id="b-reset" type="button">Baştan al</button>
+          <span class="count" id="m-count">1 / 14</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div aria-live="polite" style="display:grid;gap:12px">
+          <div class="stepmeta"><span class="chip" id="m-grp">Hazırlık</span><span id="m-tag"></span></div>
+          <h2 id="m-title"></h2>
+          <div id="m-body" class="body"></div>
+        </div>
+        <div id="m-detail"></div>
+      </div>
+
+      <div class="panel prog" id="c-prog">
+        <div class="ph"><h3>Program</h3><span>assembly → makine kodu</span></div>
+        <div class="progscroll"><table class="progt" id="prog"></table></div>
+        <p class="small">Simülatördeki karşılıkları: <b>Sonraki komut</b> kutusu PC'yi, <b>Akümülatör</b> kutusu ACC'yi, <b>Bellek</b> tablosu RAM'i gösterir.</p>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+  const NS = 'http://www.w3.org/2000/svg';
+  const bin4 = n => n.toString(2).padStart(4, '0');
+  const bits8 = n => n.toString(2).padStart(8, '0');
+  const bin8 = n => { const s = bits8(n); return s.slice(0, 4) + ' ' + s.slice(4); };
+  const m = s => `<span class="mono">${s}</span>`;
+
+  const PROG = [
+    { lab: 'basla', asm: 'get',     mc: '0001 0000' },
+    { lab: '',      asm: 'store a', mc: '0100 0110' },
+    { lab: '',      asm: 'get',     mc: '0001 0000' },
+    { lab: '',      asm: 'add a',   mc: '0101 0110' },
+    { lab: '',      asm: 'print',   mc: '0010 0000' },
+    { lab: '',      asm: 'stop',    mc: '0000 0000' },
+    { lab: 'a',     asm: '0',       mc: '0000 0000' },
+  ];
+  const OPS = [
+    ['0000', 'stop',  'programı durdurur', false],
+    ['0001', 'get',   'klavyeden gelen sayıyı akümülatöre yazar', false],
+    ['0010', 'print', 'akümülatördeki sayıyı ekrana yazar', false],
+    ['0011', 'load',  'hücredeki sayıyı akümülatöre kopyalar', true],
+    ['0100', 'store', 'akümülatördeki sayıyı hücreye kaydeder', true],
+    ['0101', 'add',   'hücredeki sayıyı akümülatöre ekler', true],
+  ];
+
+  const D = {
+    opcodes: () => `<div class="detail"><div class="dh">İşlem kodları (ders için örnek kodlama)</div>
+      <div class="optscroll"><table class="opt">
+        <thead><tr><th>kod</th><th>komut</th><th>ne yapar?</th><th>adres?</th></tr></thead>
+        <tbody>${OPS.map(([c, k, d, a]) => `<tr><td class="mono c">${c}</td><td class="mono">${k}</td><td>${d}</td><td class="${a ? 'yes' : 'no'}">${a ? 'evet' : 'hayır'}</td></tr>`).join('')}</tbody>
+      </table></div>
+      <p class="small"><b>Adres neden her komutta yok?</b> <code>get</code>, <code>print</code> ve <code>stop</code> bellekteki hiçbir hücreyle çalışmaz. <code>get</code> klavyeden gelen sayıyı doğrudan akümülatöre yazar, <code>print</code> akümülatördeki sayıyı ekrana yazar, <code>stop</code> ise hiçbir veriye dokunmadan programı durdurur. Bu yüzden bu komutlarda sağdaki 4 bit kullanılmaz ve 0000 kalır.</p>
+      <p class="small"><code>load</code>, <code>store</code> ve <code>add</code> ise bir bellek hücresiyle çalışır. İşlemcinin hangi hücre olduğunu bilmesi gerekir, adres bu yüzden var.</p></div>`,
+    same: () => `<div class="detail"><div class="dh">Komut mu, veri mi?</div>
+      <div class="pair"><span>Adres 5 · <code>stop</code></span>${m('0000 0000')}</div>
+      <div class="pair"><span>Adres 6 · <code>a = 0</code> (veri)</span>${m('0000 0000')}</div>
+      <p class="small">İkisi bellekte aynı sayı. Hangisinin komut olarak çalışacağını bellek değil PC belirler: işlemci yalnızca PC'nin gösterdiği adresi komut olarak okur.</p></div>`,
+    bits: n => {
+      const w = [128, 64, 32, 16, 8, 4, 2, 1];
+      const b = bits8(n).split('');
+      const parts = w.filter((x, i) => b[i] === '1');
+      return `<div class="detail"><div class="dh">${n} sayısının ikilik hali</div>
+        <div class="bits">
+          <div class="brow w" aria-hidden="true">${w.map(x => `<span>${x}</span>`).join('')}</div>
+          <div class="brow b">${b.map(x => `<span class="${x === '1' ? 'one' : ''}">${x}</span>`).join('')}</div>
+        </div>
+        <p class="sum">${m(bin8(n))} = ${parts.join(' + ')}${parts.length > 1 ? ` = ${n}` : ''}</p>
+        <p class="small">Her kutunun bir basamak değeri var. 1 olan kutuların değerleri toplanınca sayının onluk hali çıkar.</p></div>`;
+    },
+    decode: () => `<div class="detail"><div class="dh">Komut ikiye bölünür</div>
+      <div class="split">
+        <div class="half"><span class="mono big">0101</span><span class="k">işlem kodu</span><span><code>add</code> · topla</span></div>
+        <div class="half"><span class="mono big">0110</span><span class="k">adres</span><span>6 numaralı hücre (<code>a</code>)</span></div>
+      </div>
+      <p class="sum">Birlikte okununca: <b>6 numaralı hücredeki sayıyı akümülatördeki sayıya ekle.</b></p></div>`,
+    add: () => {
+      const row = n => bits8(n).split('');
+      const cells = arr => arr.map((x, i) => `<td class="${i === 4 ? 'nib ' : ''}${x === '1' ? 'one' : ''}">${x}</td>`).join('');
+      const carry = ['', '', '', '', '1', '', '', ''];
+      const A = row(7), B = row(4), S = row(11);
+      const cin = [0, 0, 0, 0, 1, 0, 0, 0];
+      const hot = new Set([4, 5]);
+      const cx = i => 72 + i * 44;
+      const W = [128, 64, 32, 16, 8, 4, 2, 1];
+      const arrow = on => `marker-end="url(#${on ? 'ad-on' : 'ad-off'})"`;
+      let svg = `<svg class="adder" viewBox="0 0 432 200" role="img" aria-label="ALU'nun içindeki 8 bitlik toplayıcı: sekiz tam toplayıcı yan yana durur, elde biti sağdan sola kutudan kutuya geçer. 0000 0111 + 0000 0100 = 0000 1011.">
+        <defs>
+          <marker id="ad-off" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ak"/></marker>
+          <marker id="ad-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="ak-on"/></marker>
+        </defs>
+        <polygon class="ad-alu" points="28,76 420,76 398,148 50,148"/>
+        <text x="428" y="168" text-anchor="end" class="rl">ALU</text>
+        <text x="10" y="40" class="rl">A</text>
+        <text x="10" y="64" class="rl">B</text>
+        <text x="10" y="186" class="rl">S</text>
+        <text x="24" y="126" text-anchor="middle" class="note-s">taşma</text>
+        <path class="ln" d="M424,109 H${cx(7) + 16}" ${arrow(false)}/>
+        <text x="416" y="102" text-anchor="middle" class="cv">0</text>
+        <path class="ln" d="M${cx(0) - 16},109 H30" ${arrow(false)}/>
+        <text x="40" y="102" text-anchor="middle" class="cv">0</text>`;
+      for (let i = 0; i < 8; i++) {
+        const x = cx(i);
+        svg += `<text x="${x}" y="16" text-anchor="middle" class="w">${W[i]}</text>
+          <text x="${x - 7}" y="40" text-anchor="middle" class="ib ${A[i] === '1' ? 'one' : ''}">${A[i]}</text>
+          <text x="${x + 7}" y="64" text-anchor="middle" class="ib ${B[i] === '1' ? 'one' : ''}">${B[i]}</text>
+          <path class="ln" d="M${x - 7},45 V84" ${arrow(false)}/>
+          <path class="ln" d="M${x + 7},69 V84" ${arrow(false)}/>
+          <rect class="ad-box ${hot.has(i) ? 'on' : ''}" x="${x - 16}" y="84" width="32" height="50" rx="4"/>
+          <text x="${x}" y="113" text-anchor="middle" class="tt">TT</text>
+          <path class="ln" d="M${x},134 V166" ${arrow(false)}/>
+          <text x="${x}" y="186" text-anchor="middle" class="sb ${S[i] === '1' ? 'one' : ''}">${S[i]}</text>`;
+        if (i < 7) {
+          const on = cin[i] === 1;
+          svg += `<path class="ln ${on ? 'on' : ''}" d="M${cx(i + 1) - 16},109 H${x + 16}" ${arrow(on)}/>
+            <text x="${x + 22}" y="102" text-anchor="middle" class="cv ${on ? 'on' : ''}">${cin[i]}</text>`;
+        }
+      }
+      svg += `</svg>`;
+      return `<div class="detail"><div class="dh">ALU'nun içi: 8 bitlik toplayıcı</div>
+        <div class="adderwrap">${svg}</div>
+        <p class="small">Her kutu bir <b>tam toplayıcıdır (TT)</b>. Üç bit alır: A'dan bir bit, B'den bir bit ve sağdaki kutudan gelen elde. İki bit üretir: aşağı inen toplam biti (S) ve sola giden elde. Turuncu kutuların ilkinde 1 + 1 = 10 olduğu için elde sola geçiyor.</p>
+        <p class="small">En soldaki kutudan çıkan elde <b>taşmadır</b>. Sonuç 8 bite sığmazsa 1 olur, örneğin 255 + 1 işleminde.</p>
+        <div class="dh dh2">Kağıt üzerinde aynı işlem</div>
+        <div class="addscroll"><table class="addt"><tbody>
+          <tr class="carry"><th>elde</th>${carry.map((x, i) => `<td class="${i === 4 ? 'nib' : ''}">${x}</td>`).join('')}<td class="d"></td></tr>
+          <tr><th>A</th>${cells(row(7))}<td class="d">7</td></tr>
+          <tr><th>B +</th>${cells(row(4))}<td class="d">4</td></tr>
+          <tr class="res"><th>sonuç</th>${cells(row(11))}<td class="d">11</td></tr>
+        </tbody></table></div>
+        <p class="small">Sağdan 3. sütunda 1 + 1 = 10 olur: 0 yazılır, 1 elde sola geçer. Sağdan 4. sütunda 0 + 0 + 1 = 1.</p></div>`;
+    },
+    summary: () => `<div class="detail"><div class="dh">Toplam</div>
+      <ul class="facts">
+        <li><b>6</b> komut çalıştı. Simülatör de çıktıda <code>instructions executed so far: 6</code> yazar.</li>
+        <li>ALU yalnızca <b>1</b> komutta (<code>add</code>) çalıştı. Diğer komutlar sadece veri taşıdı.</li>
+        <li>Bellekten <b>7</b> kez okundu (6 komut + 1 veri), belleğe <b>1</b> kez yazıldı (<code>store</code>).</li>
+      </ul></div>`,
+  };
+
+  const STEPS = [
+    { grp: 'Hazırlık', tag: 'Program yazılır', title: 'Program assembly dilinde yazılır',
+      body: `<p>Öğrenci Oyuncak Makine'nin kaynak kod alanına bu programı yazar. Program klavyeden iki sayı alır, toplar ve sonucu ekrana yazar. <code>get</code>, <code>store</code>, <code>add</code> gibi kelimeler insanların kolay hatırlaması için seçilmiş kısaltmalardır.</p><p>İşlemci ise harf ve kelime tanımaz, yalnızca 0 ve 1'lerden oluşan sayılarla çalışır. Bellek şu an boş: program henüz bir metin, makineye ulaşmadı. Önce sayıya çevrilmesi gerekiyor.</p>`,
+      set: {}, on: ['prog'] },
+    { grp: 'Hazırlık', tag: 'Makine koduna çeviri', title: 'Çevirici programı makine koduna çevirir',
+      body: `<p>Çevirici (assembler) her satırı 8 bitlik bir sayıya çevirir. İşlemci bu sayıyı ortadan ikiye bölerek okur. <b>Soldaki 4 bit ne yapılacağını</b> söyler: topla, kaydet, klavyeden oku gibi. <b>Sağdaki 4 bit bu işin hangi bellek hücresiyle yapılacağını</b> söyler.</p><p><code>a</code> etiketi 6. satırda olduğu için adresi 6, ikilik sistemde ${m('0110')}. Böylece <code>store a</code> satırı ${m('0100 0110')} olur: "akümülatördeki sayıyı 6 numaralı hücreye kaydet".</p>`,
+      note: 'Buradaki işlem kodları ders için uyduruldu. Gerçek işlemcilerde de her komut böyle bir sayıdır, ama kodlar işlemciden işlemciye değişir.',
+      set: { mc: true }, on: ['prog'], detail: D.opcodes },
+    { grp: 'Hazırlık', tag: 'Belleğe yükleme', title: 'Program belleğe yüklenir',
+      body: `<p>Makine kodu RAM'e yüklenir ve her satır sırayla bir hücreye yerleşir: 0. satır 0 numaralı hücreye, 1. satır 1 numaralı hücreye. Komutlar (0–5) ve veri (6) aynı bellekte yan yana durur. Bu tasarıma <b>von Neumann mimarisi</b> denir.</p><p><b>Program Sayacı (PC)</b>, işlemcinin sıradaki komutu hangi adresten alacağını tutan küçük bir yazmaçtır. Başlangıçta 0 yapılır, yani işlemci ilk komutu 0 numaralı hücrede arayacak.</p>`,
+      set: { loaded: true, pc: 0 }, on: ['ram', 'pc'], detail: D.same },
+    { grp: 'get', tag: 'Getir ve çözümle', title: 'İlk komut getirilir',
+      body: `<p>Kontrol birimi PC'deki adresi (0) adres yolundan RAM'e gönderir. Bu "bana 0 numaralı hücreyi ver" demektir. RAM o hücredeki ${m('0001 0000')} sayısını geri yollar ve sayı <b>komut yazmacına (IR)</b> yerleşir. IR, o an çalışan komutu tutan yazmaçtır.</p><p>Çözücü soldaki 4 bite bakar: ${m('0001')} demek <code>get</code> demek, işlemci klavyeden sayı bekleyecek. Sağdaki 4 bit ${m('0000')}, çünkü <code>get</code> bellekle çalışmaz: klavyeden gelen sayıyı doğrudan akümülatöre yazar.</p>`,
+      set: { ir: '0001 0000', dec: '0001 → GET · klavyeden oku' }, on: ['pc', 'ir', 'dec'], edges: ['addr', 'fetch'], read: [0], line: 0 },
+    { grp: 'get', tag: '4 girilir', title: 'Klavyeden 4 girilir',
+      body: `<p>Kullanıcı 4 tuşuna basar. Klavye aslında '4' karakterinin kodunu (52) gönderir. Program bunu sayıya çevirir ve akümülatöre ${m('0000 0100')} olarak yazar. Bilgisayar her sayıyı bu şekilde, 0 ve 1'lerle saklar.</p><p><code>get</code> komutu tamamlandı. PC bir artar ve 1 olur, sıradaki komut 1 numaralı hücrede.</p>`,
+      set: { pc: 1, acc: 4 }, kbd: '4', on: ['kbd', 'acc', 'pc'], edges: ['kbd'], line: 0, detail: () => D.bits(4) },
+    { grp: 'store a', tag: 'Belleğe yaz', title: 'Akümülatördeki sayı belleğe yazılır',
+      body: `<p>1 numaralı hücredeki ${m('0100 0110')} getirilir. Çözücü komutu ikiye böler: ${m('0100')} store (kaydet), ${m('0110')} ise 6 numaralı hücre demek. Birlikte okununca: "akümülatördeki sayıyı 6 numaralı hücreye kaydet".</p><p>Akümülatördeki ${m('0000 0100')}, 6 numaralı hücreye yazılır. Bu komutta ALU hiç çalışmaz, çünkü hesap yok, sadece veri taşınıyor. Akümülatördeki 4 de silinmez, belleğe kopyası gider.</p>`,
+      note: '6 numaralı hücredeki 0000 0100 bir komut değil, sayıdır. Baştaki 0000 işlem kodu değil: her hücre 8 bit olduğu için 4 sayısının (100) boş kalan basamakları 0 ile doldurulur. Ortadaki boşluk sadece okumayı kolaylaştırmak için.',
+      set: { ir: '0100 0110', dec: '0100 → STORE · 0110 → adres 6', aval: 4 }, on: ['ir', 'dec', 'acc'], edges: ['addr', 'fetch', 'store'], read: [1], write: [6], line: 1 },
+    { grp: 'get', tag: '7 girilir', title: 'Klavyeden 7 girilir',
+      body: `<p>PC 2'yi gösterir. Buradaki <code>get</code> komutu getirilir ve kullanıcı 7 girer. Akümülatör aynı anda tek bir sayı tutabilir. Bu yüzden içindeki 4 silinir, yerine ${m('0000 0111')} yazılır.</p><p>4 kaybolmadı, çünkü bir önceki adımda RAM'in 6 numaralı hücresine kaydedilmişti. Programdaki <code>store a</code> satırı bu yüzden var: o satır olmasaydı ilk sayı burada kaybolurdu.</p>`,
+      set: { pc: 2, ir: '0001 0000', dec: '0001 → GET · klavyeden oku', acc: 7 }, kbd: '7', on: ['pc', 'ir', 'dec', 'kbd', 'acc'], edges: ['addr', 'fetch', 'kbd'], read: [2], line: 2, detail: () => D.bits(7) },
+    { grp: 'add a', tag: '1 · Getir', title: 'Toplama komutu getirilir',
+      body: `<p>PC'de 3 var. Kontrol birimi bu adresi RAM'e gönderir ve 3 numaralı hücredeki ${m('0101 0110')} sayısını komut yazmacına alır.</p><p>Bu aşamada işlemci için bu sadece bir sayı. Ne yapılacağı bir sonraki adımda, çözücüde anlaşılacak. Her komut aynı döngüden geçer: <b>getir, çözümle, çalıştır</b>. Toplama komutunda bu aşamaları tek tek görüyoruz.</p>`,
+      set: { pc: 3, ir: '0101 0110', dec: '' }, on: ['pc', 'ir'], edges: ['addr', 'fetch'], read: [3], line: 3 },
+    { grp: 'add a', tag: '2 · Çözümle', title: 'Çözücü komutu anlamlandırır',
+      body: `<p>Çözücü sayıyı ikiye böler. Soldaki 4 bit (${m('0101')}) işlemi söyler: topla. Sağdaki 4 bit (${m('0110')}) toplanacak sayının nerede durduğunu söyler: 6 numaralı hücre, yani <code>a</code>. Toplamanın diğer sayısı zaten akümülatörde (7), onun için adres gerekmiyor.</p><p>PC 4'e ilerler. Bu komut bitince sıradaki komut oradan alınacak.</p>`,
+      set: { pc: 4, dec: '0101 → TOPLA · 0110 → adres 6' }, on: ['ir', 'dec', 'pc'], line: 3, detail: D.decode },
+    { grp: 'add a', tag: '3 · Verileri getir', title: 'İki sayı ALU\'nun girişlerine gelir',
+      body: `<p>Kontrol birimi 6 adresini RAM'e gönderir. Oradaki ${m('0000 0100')} (4) veri yolu ile ALU'nun B girişine gelir.</p><p>Akümülatördeki ${m('0000 0111')} (7) de A girişine kopyalanır. ALU'nun elinde artık toplayacağı iki sayı var. ALU belleğe kendisi ulaşamaz. Sayıları ona kontrol birimi getirir.</p>`,
+      set: { A: 7, B: 4 }, on: ['acc', 'a', 'b'], edges: ['addr', 'ramB', 'accA'], read: [6], line: 3 },
+    { grp: 'add a', tag: '4 · ALU toplar', title: 'ALU iki sayıyı toplar',
+      body: `<p>Kontrol birimi ALU'ya <b>topla</b> sinyalini gönderir. ALU komutu görmez. Sadece iki sayı ve hangi işlemi yapacağını söyleyen bir sinyal alır.</p><p>ALU'nun içinde 8 tane tam toplayıcı yan yana durur, her biri bir bit sütununu toplar. Elde mantığı onluk sistemdekiyle aynı: 1 + 1 = 10 olduğunda 0 yazılır, 1 elde soldaki toplayıcıya geçer. Şemada ALU'nun içindeki küçük kutularda sonucun bitleri görünüyor.</p>`,
+      set: {}, op: '+ topla', on: ['dec', 'alu', 'a', 'b'], edges: ['ctrl', 'ain', 'bin'], line: 3, detail: D.add },
+    { grp: 'add a', tag: '5 · Sonucu yaz', title: 'Sonuç akümülatöre yazılır',
+      body: `<p>ALU'nun çıkışındaki ${m('0000 1011')} akümülatöre yazılır. 7'nin üzerine yazıldığı için 7 artık yok, yerinde sonuç var: 11.</p><p>RAM'deki <code>a</code> hücresi değişmedi, hâlâ 4, çünkü <code>add</code> sonucu belleğe değil akümülatöre yazar. Sonucu bellekte saklamak isteseydik bundan sonra bir <code>store</code> komutu daha gerekirdi.</p>`,
+      set: { acc: 11 }, op: '+ topla', on: ['alu', 'acc'], edges: ['aluout'], line: 3 },
+    { grp: 'print', tag: 'Ekrana yaz', title: 'Sonuç ekrana yazılır',
+      body: `<p>4 numaralı hücredeki ${m('0010 0000')} getirilir ve çözücü bunun <code>print</code> olduğunu anlar. Sağdaki 4 bit yine ${m('0000')}, çünkü <code>print</code> bellekten okumaz: ekrana her zaman akümülatördeki sayıyı yazar.</p><p>Akümülatördeki ${m('0000 1011')} onluk sisteme çevrilip ekrana yazılır: 8 + 2 + 1 = 11. Akümülatör bu sırada değişmez, sadece okunur.</p>`,
+      set: { ir: '0010 0000', dec: '0010 → PRINT · ekrana yaz', A: null, B: null, out: '11' }, on: ['pc', 'ir', 'dec', 'acc', 'out'], edges: ['addr', 'fetch', 'outp'], read: [4], line: 4, detail: () => D.bits(11) },
+    { grp: 'stop', tag: 'Dur', title: 'Program durur',
+      body: `<p>PC 5'e ilerler ve buradaki ${m('0000 0000')} getirilir: <code>stop</code>. <code>stop</code> da adres kullanmaz. Ne belleğe ne akümülatöre dokunur, sadece işlemcinin yeni komut getirmesini durdurur.</p><p>6 numaralı hücre hiçbir zaman komut olarak okunmadı, baştan sona veri olarak kaldı. <code>stop</code> olmasaydı işlemci bu hücreyi de komut olarak okumaya çalışırdı. Simülatör bu durumda <code>invalid opcode</code> hatası verir. Simülatör sayfasındaki "programınızı <code>stop</code> komutuyla bitirmeyi unutmayın" uyarısı bu yüzden var.</p>`,
+      set: { pc: 5, ir: '0000 0000', dec: '0000 → STOP · dur' }, on: ['pc', 'ir', 'dec'], edges: ['addr', 'fetch'], read: [5], line: 5, detail: D.summary },
+  ];
+  const N = STEPS.length;
+  const INIT = { pc: null, ir: '', dec: '', A: null, B: null, acc: 0, aval: 0, loaded: false, mc: false, out: '' };
+  const stateAt = i => STEPS.slice(0, i + 1).reduce((s, st) => Object.assign(s, st.set), { ...INIT });
+
+  const $ = id => document.getElementById(id);
+  const rowsG = $('rows');
+  const ramRows = [];
+  for (let r = 0; r < 8; r++) {
+    const y = 74 + r * 58;
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('class', 'row');
+    const mk = (tag, attrs, text) => {
+      const el = document.createElementNS(NS, tag);
+      for (const k in attrs) el.setAttribute(k, attrs[k]);
+      if (text !== undefined) el.textContent = text;
+      g.appendChild(el);
+      return el;
+    };
+    mk('rect', { x: 722, y, width: 256, height: 50, rx: 6 });
+    mk('text', { x: 732, y: y + 31, class: 'addr' }, bin4(r));
+    mk('text', { x: 772, y: y + 31, class: 'addrd' }, String(r));
+    const cell = mk('text', { x: 800, y: y + 31, class: 'cell' });
+    const mean = mk('text', { x: 900, y: y + 31, class: 'mean' });
+    rowsG.appendChild(g);
+    ramRows.push({ g, cell, mean });
+  }
+
+  const faG = $('fa');
+  const faT = [];
+  for (let i = 0; i < 8; i++) {
+    const x = 375 + i * 18;
+    const r = document.createElementNS(NS, 'rect');
+    r.setAttribute('class', 'fa');
+    r.setAttribute('x', x); r.setAttribute('y', 352); r.setAttribute('width', 15); r.setAttribute('height', 15); r.setAttribute('rx', 2);
+    const t = document.createElementNS(NS, 'text');
+    t.setAttribute('class', 'fat');
+    t.setAttribute('x', x + 7.5); t.setAttribute('y', 363.5); t.setAttribute('text-anchor', 'middle');
+    faG.appendChild(r); faG.appendChild(t);
+    faT.push(t);
+  }
+
+  const progT = $('prog');
+  const progRows = PROG.map((p, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="a">${i}</td><td class="l">${p.lab}</td><td>${p.asm}</td><td class="mc"></td>`;
+    progT.appendChild(tr);
+    return tr;
+  });
+
+  const rail = $('rail');
+  const dots = [];
+  let box = null;
+  STEPS.forEach((st, idx) => {
+    if (idx === 0 || st.grp !== STEPS[idx - 1].grp) {
+      const grp = document.createElement('div');
+      grp.className = 'grp';
+      grp.innerHTML = `<span>${st.grp}</span><div></div>`;
+      rail.appendChild(grp);
+      box = grp.lastChild;
+    }
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'dot';
+    b.textContent = String(idx + 1);
+    b.setAttribute('aria-label', `Adım ${idx + 1}: ${st.tag}`);
+    b.addEventListener('click', () => go(idx));
+    box.appendChild(b);
+    dots.push(b);
+  });
+
+  const COMPS = ['kbd', 'out', 'pc', 'ir', 'dec', 'a', 'b', 'alu', 'acc', 'ram'];
+  const EDGES = ['addr', 'fetch', 'ramB', 'store', 'kbd', 'outp', 'accA', 'ctrl', 'ain', 'bin', 'aluout'];
+  EDGES.forEach(e => $('e-' + e).querySelector('path').setAttribute('marker-end', 'url(#mk-off)'));
+
+  let cur = 0;
+  let first = true;
+
+  const setText = (el, txt) => {
+    if (el.textContent === txt) return;
+    el.textContent = txt;
+    if (!first) { el.classList.remove('flash'); void el.getBoundingClientRect(); el.classList.add('flash'); }
+  };
+
+  function render() {
+    const st = STEPS[cur];
+    const s = stateAt(cur);
+    const on = new Set(st.on || []);
+    const edges = new Set(st.edges || []);
+    const read = new Set(st.read || []);
+    const write = new Set(st.write || []);
+
+    COMPS.forEach(c => $('c-' + c).classList.toggle('on', on.has(c)));
+    $('c-prog').classList.toggle('on', on.has('prog'));
+    EDGES.forEach(e => {
+      const g = $('e-' + e);
+      const isOn = edges.has(e);
+      g.classList.toggle('on', isOn);
+      g.querySelector('path').setAttribute('marker-end', isOn ? 'url(#mk-on)' : 'url(#mk-off)');
+    });
+
+    setText($('t-pc'), s.pc === null ? '–' : `${bin4(s.pc)}  (${s.pc})`);
+    setText($('t-ir'), s.ir || '–');
+    setText($('t-dec'), s.dec || '–');
+    setText($('t-a'), s.A === null ? '–' : bin8(s.A));
+    setText($('t-b'), s.B === null ? '–' : bin8(s.B));
+    setText($('t-op'), st.op || '');
+    const sumBits = st.op ? bits8(11) : '';
+    faT.forEach((t, i) => setText(t, sumBits ? sumBits[i] : ''));
+    setText($('t-acc'), bin8(s.acc));
+    setText($('t-accd'), '= ' + s.acc);
+    setText($('t-kbd'), st.kbd || '');
+    setText($('t-out'), s.out);
+
+    ramRows.forEach((r, i) => {
+      let cell = '—', mean = '';
+      if (s.loaded && i < 7) {
+        cell = i === 6 ? bin8(s.aval) : PROG[i].mc;
+        mean = i === 6 ? `a = ${s.aval} (veri)` : PROG[i].asm;
+      } else if (s.loaded) {
+        mean = 'boş';
+      }
+      setText(r.cell, cell);
+      r.cell.classList.toggle('empty', cell === '—');
+      setText(r.mean, mean);
+      r.g.classList.toggle('read', read.has(i));
+      r.g.classList.toggle('write', write.has(i));
+    });
+
+    progRows.forEach((tr, i) => {
+      const td = tr.lastChild;
+      td.textContent = s.mc ? PROG[i].mc : '···· ····';
+      td.classList.toggle('hid', !s.mc);
+      tr.classList.toggle('cur', st.line === i);
+    });
+
+    $('m-count').textContent = `${cur + 1} / ${N}`;
+    $('m-grp').textContent = st.grp;
+    $('m-tag').textContent = `Adım ${cur + 1} · ${st.tag}`;
+    $('m-title').textContent = st.title;
+    $('m-body').innerHTML = st.body + (st.note ? `<p class="note">${st.note}</p>` : '');
+    $('m-detail').innerHTML = st.detail ? st.detail() : '';
+    $('m-detail').hidden = !st.detail;
+
+    dots.forEach((d, i) => {
+      d.classList.toggle('cur', i === cur);
+      d.classList.toggle('done', i < cur);
+      if (i === cur) d.setAttribute('aria-current', 'step'); else d.removeAttribute('aria-current');
+    });
+    $('b-prev').disabled = cur === 0;
+    $('b-next').disabled = cur === N - 1;
+    first = false;
+  }
+
+  function go(i) { cur = Math.max(0, Math.min(N - 1, i)); render(); }
+  $('b-prev').addEventListener('click', () => go(cur - 1));
+  $('b-next').addEventListener('click', () => go(cur + 1));
+  $('b-reset').addEventListener('click', () => go(0));
+  document.addEventListener('keydown', e => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.key === 'ArrowRight') { e.preventDefault(); go(cur + 1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); go(cur - 1); }
+    else if (e.key === 'Home') { e.preventDefault(); go(0); }
+  });
+
+  const boot = data => { cur = Number.isInteger(data && data.step) ? data.step : 0; render(); };
+  try { window.claude?.hot?.snapshot?.(() => ({ step: cur })); } catch (e) {}
+  try {
+    if (window.claude?.hot?.ready) window.claude.hot.ready(boot);
+    else boot(window.claude?.hot?.data ?? {});
+  } catch (e) { boot({}); }
+})();
+</script>
+
+</body>
+</html>

@@ -11,6 +11,7 @@ Bu ders, bilgisayarın içinde kodun nasıl işlendiğini göstermek amacıyla t
 | [00-Kavramlar.md](00-Kavramlar.md) | İşlemci, RAM, akümülatör nedir? |
 | [01-Komutlar.md](01-Komutlar.md) | Oyuncak Makine komut referansı |
 | [02-Alistirmalar.md](02-Alistirmalar.md) | Alıştırmalar: Üs alma, Faktöriyel |
+| [toplama-yolculugu.html](toplama-yolculugu.html) | Etkileşimli görsel: 4 + 7 toplamasını işlemci, RAM ve ALU üzerinde adım adım izle (tarayıcıda açılır) |
 
 ## Nasıl çalışılır?
 
