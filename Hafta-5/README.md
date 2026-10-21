@@ -26,22 +26,18 @@ ruby ~/Masaüstü/Hello.rb
 
 ## Windows (PowerShell)
 
-Windows Terminal içinde PowerShell sekmesini açın. Aşağıdaki masaüstü yolu, OneDrive'a taşınmış masaüstünü de bulur.
+Windows Terminal içinde PowerShell sekmesini açın.
 
-1. Masaüstünde boş dosya oluşturun:
-
-```powershell
-$masaustu = [Environment]::GetFolderPath('Desktop')
-New-Item -Path "$masaustu\Hello.rb" -ItemType File
-```
-
-2. Dosyayı Not Defteri ile açın:
+1. Masaüstüne geçip dosyayı Not Defteri ile açın:
 
 ```powershell
-notepad "$masaustu\Hello.rb"
+cd ~/Desktop
+notepad Hello.rb
 ```
 
-Aşağıdaki kodu yazıp UTF-8 kodlamasıyla kaydedin:
+Dosyayı oluşturmak için sorarsa **Evet** deyin. Masaüstünüz OneDrive içindeyse ilk komut olarak `cd ~/OneDrive/Desktop` kullanın.
+
+2. Aşağıdaki kodu yazıp UTF-8 kodlamasıyla kaydedin:
 
 ```ruby
 puts "Merhaba dünya"
@@ -50,7 +46,7 @@ puts "Merhaba dünya"
 3. Aynı PowerShell penceresinde çalıştırın:
 
 ```powershell
-ruby "$masaustu\Hello.rb"
+ruby Hello.rb
 ```
 
 `ruby` komutu tanınmıyorsa Ruby kurulu olmayabilir veya PATH'e eklenmemiş olabilir.
