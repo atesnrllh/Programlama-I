@@ -1,4 +1,48 @@
-# Hafta 5 — Ruby ile Merhaba Dünya
+# Hafta 5
+
+## Sınıf notları — Örnek ekran çıktıları
+
+Program sırasıyla **geçen öğrenci sayısını**, **kalan öğrenci sayısını** ve **not ortalamasını** yazdırır.
+
+### Örnek 1
+
+Girdi: `85, 40, 50, 0, 75, 50, -1`
+
+Ekran çıktısı:
+
+```text
+4
+2
+50
+```
+
+### Örnek 2
+
+Girdi: `90, 30, -1`
+
+Ekran çıktısı:
+
+```text
+1
+1
+60
+```
+
+### Örnek 3
+
+Girdi: `0, -1`
+
+Ekran çıktısı:
+
+```text
+0
+1
+0
+```
+
+`-1` hesaplamaya katılmaz. `0` geçerli bir nottur; `50` alan öğrenci geçer.
+
+## Ruby ile Merhaba Dünya
 
 Ruby kodu iki işletim sisteminde de aynıdır. Dosya oluşturma komutu ve masaüstü yolu farklıdır. Ruby'nin yüklü olduğunu `ruby --version` ile kontrol edebilirsiniz.
 
